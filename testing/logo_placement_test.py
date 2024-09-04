@@ -8,7 +8,7 @@ def test_api(logo_path, product_image_path):
     with open(logo_path, 'rb') as logo_file, open(product_image_path, 'rb') as product_file:
         # Prepare the files to be sent in the request
         files = {
-            'logo': logo_file,
+            'logo_image': logo_file,
             'product_image': product_file,
         }
 

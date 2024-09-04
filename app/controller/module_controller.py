@@ -34,11 +34,13 @@ def userinfoapi(request : UserInfoRequest,db: Session = Depends(get_db)):
         return str(e.detail), True
 
 @log.logError
-def logoplacementapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)):
-    superimpose_image = LogoPlacement()
-    _response = superimpose_image.process_and_save_image(logo, product_image)       
-           
-    return _response 
+def logoplacementapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)) -> tuple:
+    try:
+        superimpose_image = LogoPlacement(logo, product_image)
+        image_bytes = superimpose_image.process_and_save_image()
+        return image_bytes, False  # Returning the image bytes and a flag (False indicating no error)
+    except Exception as e:
+        return str(e), True 
 
 @log.logError
 def bgcolorapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)):

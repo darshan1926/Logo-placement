@@ -27,9 +27,9 @@ def user_data(request: UserInfoRequest):
 def logo(logo_image: UploadFile = File(...), product_image: UploadFile = File(...)):
     _response, flag = logoplacementapi(logo_image, product_image)
     if flag:
-        return ErrorResponse(errorMessage=str(_response))
+        return ErrorResponse(errorMessage=_response)
     else:
-        return _response
+        return Response(content=_response, media_type="image/png")
     
 @router.post("/generateCompanyStyleImage")
 @log.logError
