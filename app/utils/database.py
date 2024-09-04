@@ -1,9 +1,7 @@
-# database.py
-
 from sqlalchemy import create_engine, Column, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from config import settings
+from app.config import settings
 
 # Initialize the database
 engine = create_engine(settings.DATABASE_URL)
@@ -14,17 +12,17 @@ Base = declarative_base()
 class Organization(Base):
     __tablename__ = 'organization'
     
-    name = Column(String, primary_key=True)  # PK
-    category = Column(String)
-    logo_link = Column(String)
+    name = Column(String(255), primary_key=True)  # PK
+    category = Column(String(255))
+    logo_link = Column(String(255))
 
 class User(Base):
     __tablename__ = 'user'
     
-    name = Column(String, primary_key=True)
-    location = Column(String)
-    organization_name = Column(String, ForeignKey('organization.name'))  # FK
-    profile_pic = Column(String)
+    name = Column(String(255), primary_key=True)
+    location = Column(String(255))
+    organization_name = Column(String(255), ForeignKey('organization.name'))  # FK
+    profile_pic = Column(String(255))
 
 # Create tables if not already present
 Base.metadata.create_all(bind=engine)

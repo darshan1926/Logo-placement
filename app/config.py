@@ -15,10 +15,12 @@ class Settings(BaseSettings):
     LOGS_PATH: str = os.getcwd()
     
     # Define the MySQL database URL
-    DATABASE_URL = "mysql+mysqlconnector://username:password@localhost/dbname"
+    DATABASE_URL : str = "mysql+mysqlconnector://root:Darshan%401926@localhost:3306/userdata"
 
-    SAM_MODEL=""
-    STABLE_DIFFUSION_MODEL=""
+    STABLE_DIFFUSION_MODEL : str = "runwayml/stable-diffusion-inpainting"
 
+    # Logs
+    logLevel : str = "INFO"
+    logFolderPath: str = "Logs"
     
 settings = Settings()

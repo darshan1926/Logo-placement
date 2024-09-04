@@ -1,4 +1,4 @@
-from app.pymodels.module_response import UserInfoRequest, UserInfoResponse, LogoPlacementRequest, LogoPlacementResponse, BgColorRequest, BgColorResponse
+from app.pymodels.module_response import UserInfoRequest, UserInfoResponse
 from app.Modules.user_management import UserData
 from app.Modules.logo_placement import LogoPlacement
 from app.Modules.bg_replacement import BgColorGenerator
@@ -18,49 +18,43 @@ log.setLogger()
 @log.logError
 def userinfoapi(request : UserInfoRequest,db: Session = Depends(get_db)):
     crud_operations = UserData(db)
-    _response = crud_operations.modify_record(
-        table=request.table,
-        action=request.action,
-        name=request.name,
-        location=request.location,
-        organization_name=request.organization_name,
-        profile_pic=request.profile_pic,
-        category=request.category,
-        logo_link=request.logo_link
-    )
-            
-    return _response
+    try:
+        _response = crud_operations.modify_record(
+            table=request.table,
+            action=request.action,
+            name=request.name,
+            location=request.location,
+            organization_name=request.organization_name,
+            profile_pic=request.profile_pic,
+            category=request.category,
+            logo_link=request.logo_link
+        )
+        return _response, False
+    except HTTPException as e:
+        return str(e.detail), True
 
 @log.logError
-def logoplacementapi(request : LogoPlacementRequest):
-
-    args = vars(request)
-
-    product_name = args['productName']
-    additional_information = args['additionalInformation']
-    call_to_action = args['callToAction']
-    
-    component_rewriter = LogoPlacement()
-    _response = None # component_rewriter.component_rewrite(product_name,additional_information,call_to_action)       
-    result = LogoPlacementResponse(content = _response , parameters  = args , info = "Success")
-            
-    return result 
-
+def logoplacementapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)):
+    superimpose_image = LogoPlacement()
+    _response = superimpose_image.process_and_save_image(logo, product_image)       
+           
+    return _response 
 
 @log.logError
-async def bgcolorapi(file: UploadFile = File(...)):
+def bgcolorapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)):
     palette_selection = BgColorGenerator()
     try:
-        # Read the uploaded file and convert it to an image
-        image_data = await file.read()
-        image = Image.open(BytesIO(image_data)).convert("RGB")
-        
-        # Run the inpainting pipeline to process the image
-        img_byte_arr = palette_selection.run_pipeline(image)
-        
-        # Return the image as a response with the appropriate content type
-        return Response(content=img_byte_arr, media_type="image/png")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Read the uploaded logo and product image files
+        logo_data = logo.read()
+        product_image_data = product_image.read()
 
-    return result
+        # Convert the uploaded files into PIL images
+        logo_image = Image.open(BytesIO(logo_data)).convert("RGB")
+        product_image_pil = Image.open(BytesIO(product_image_data)).convert("RGB")
+        
+        # Run the inpainting pipeline with both logo and product images
+        _response = palette_selection.run_pipeline(logo_image, product_image_pil)
+        
+        return _response, False  # Return False for flag as there is no error
+    except Exception as e:
+        return str(e), True  # Return error message and set flag to True

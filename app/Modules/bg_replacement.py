@@ -5,91 +5,77 @@ from PIL import Image
 import torchvision.transforms as transforms
 from diffusers import StableDiffusionInpaintPipeline
 from io import BytesIO
-from app.config import settings 
+from app.config import settings
 from app.utils.components_utils import extract_dominant_colors
+import matplotlib.pyplot as plt
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+
 class BgColorGenerator:
     def __init__(self):
-        # Initialize SAM Model
-        self.sam_model = self.load_sam_model(settings.SAM_MODEL)
-        self.sd_model_name=settings.STABLE_DIFFUSION_MODEL
-        
-        # Initialize Stable Diffusion Inpainting Model
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Initialize Segment Anything Model with a pre-trained model
+        self.sam_model = self.initialize_sam_model()
+        
+        # Initialize Stable Diffusion Inpainting Pipeline
+        self.sd_model_name = settings.STABLE_DIFFUSION_MODEL
         self.sd_pipe = StableDiffusionInpaintPipeline.from_pretrained(
-            self.sd_model_name, 
+            self.sd_model_name,
             torch_dtype=torch.float16
         ).to(self.device)
-    
-    def load_sam_model(self, model_path):
-        # Load the pre-trained SAM model
-        model = torch.load(model_path)
-        model.eval()
-        return model
-    
+
+    def initialize_sam_model(self):
+        # Use a pre-trained model from segment-anything
+        sam = sam_model_registry["vit_h"]()  # You can choose other models like "vit_l" based on your needs
+        sam.to(device=self.device)
+        mask_generator = SamAutomaticMaskGenerator(sam)
+        return mask_generator
+
     def preprocess_image(self, image: Image.Image):
-        """Preprocess the input image."""
         return image
-    
+
     def generate_mask(self, image: Image.Image):
-        """Generate mask using SAM model."""
-        preprocess = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-        ])
-        input_image = preprocess(image).unsqueeze(0)  # Add batch dimension
+        # Convert image to numpy array
+        image_np = np.array(image)
         
-        with torch.no_grad():
-            output = self.sam_model(input_image)
+        # Generate masks using Segment Anything Model
+        masks = self.sam_model.generate(image_np)
         
-        # Post-process the output to obtain the mask
-        mask = output[0].cpu().numpy()  # Convert to numpy array
-        mask = (mask > 0.5).astype(np.uint8) * 255  # Binary mask
+        # Combine all masks into one by taking the union of all mask regions
+        combined_mask = np.zeros_like(image_np[:, :, 0], dtype=np.uint8)
+        for mask in masks:
+            combined_mask = np.maximum(combined_mask, mask['segmentation'].astype(np.uint8) * 255)
         
-        return Image.fromarray(mask[0])  # Convert numpy array to PIL Image
-    
+        return Image.fromarray(combined_mask)
+
     def apply_mask(self, original_image: Image.Image, mask: Image.Image):
-        """Apply mask to the original image."""
         original_image = np.array(original_image)
-        mask = np.array(mask.convert('L'))  # Convert PIL mask to grayscale numpy array
+        mask = np.array(mask.convert('L'))
         mask = cv2.resize(mask, (original_image.shape[1], original_image.shape[0]))
-        
-        # Create masked image
+
         masked_image = cv2.bitwise_and(original_image, original_image, mask=mask)
         return masked_image
-    
-    def inpaint_image(self, masked_image, prompt="A beautiful landscape"):
-        """Perform inpainting using Stable Diffusion."""
-        # Convert masked image to PIL format for Stable Diffusion
+
+    def inpaint_image(self, masked_image, prompt):
         masked_image_pil = Image.fromarray(cv2.cvtColor(masked_image, cv2.COLOR_BGR2RGB))
-        
-        # Inpainting
-        masked_image = np.array(masked_image_pil)
-        output = self.sd_pipe(prompt=prompt, image=masked_image, mask_image=np.array(masked_image_pil.convert('L'))).images[0]
+        output = self.sd_pipe(prompt=prompt, image=masked_image_pil, mask_image=masked_image_pil.convert('L')).images[0]
         return output
-    
-    def process_image(self, image: Image.Image, prompt):
-        """Process the image with SAM-based masking and Stable Diffusion inpainting."""
-        # Generate mask
+
+    async def process_image(self, image: Image.Image, prompt):
         mask = self.generate_mask(image)
-        
-        # Apply the mask to the original image
         masked_image = self.apply_mask(image, mask)
-        
-        # Perform inpainting
         inpainted_image = self.inpaint_image(masked_image, prompt)
-        
         return inpainted_image
 
-    def run_pipeline(self, image: Image.Image):
-        """Call all functions to process the image and return the result as bytes."""
-        bgcolor = extract_dominant_colors(image)
-        prompt=f"generate the {bgcolor} "
-        # Process the image through the pipeline
-        inpainted_image = self.process_image(image, prompt)
-        
-        # Convert the inpainted image to bytes
+    def run_pipeline(self, logo_image, product_image):
+        print("hello i am in the main code!!!!!--------------------------------------------------------------------")
+        bgcolor = extract_dominant_colors(logo_image)
+        prompt = f"A beautiful product image with a {bgcolor} background"
+        inpainted_image = self.process_image(product_image, prompt)
+
         img_byte_arr = BytesIO()
         inpainted_image.save(img_byte_arr, format='PNG')
         img_byte_arr = img_byte_arr.getvalue()
-        
+
         return img_byte_arr
+
