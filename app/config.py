@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Define the MySQL database URL
     DATABASE_URL : str = "mysql+mysqlconnector://root:Darshan%401926@localhost:3306/userdata"
 
-    STABLE_DIFFUSION_MODEL : str = "runwayml/stable-diffusion-inpainting"
+    STABLE_DIFFUSION_MODEL : str = "stabilityai/stable-diffusion-inpainting"
 
     # Logs
     logLevel : str = "INFO"

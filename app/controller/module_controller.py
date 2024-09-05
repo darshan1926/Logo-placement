@@ -34,28 +34,20 @@ def userinfoapi(request : UserInfoRequest,db: Session = Depends(get_db)):
         return str(e.detail), True
 
 @log.logError
-def logoplacementapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)) -> tuple:
+def logoplacementapi(logo: UploadFile, product_image: UploadFile) -> tuple:
     try:
         superimpose_image = LogoPlacement(logo, product_image)
-        image_bytes = superimpose_image.process_and_save_image()
-        return image_bytes, False  # Returning the image bytes and a flag (False indicating no error)
+        file_path = superimpose_image.process_and_save_image()
+        return file_path, False  # Returning the image file path and a flag (False indicating no error)
     except Exception as e:
-        return str(e), True 
+        return str(e), True
 
 @log.logError
 def bgcolorapi(logo: UploadFile = File(...), product_image: UploadFile = File(...)):
     palette_selection = BgColorGenerator()
-    try:
-        # Read the uploaded logo and product image files
-        logo_data = logo.read()
-        product_image_data = product_image.read()
-
-        # Convert the uploaded files into PIL images
-        logo_image = Image.open(BytesIO(logo_data)).convert("RGB")
-        product_image_pil = Image.open(BytesIO(product_image_data)).convert("RGB")
-        
+    try:  
         # Run the inpainting pipeline with both logo and product images
-        _response = palette_selection.run_pipeline(logo_image, product_image_pil)
+        _response = palette_selection.run_pipeline(logo, product_image)
         
         return _response, False  # Return False for flag as there is no error
     except Exception as e:
